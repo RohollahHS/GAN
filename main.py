@@ -7,6 +7,7 @@ from torchvision.utils import save_image
 from torch.autograd import Variable
 import torch
 
+
 def parse_option():
     parser = argparse.ArgumentParser()
     parser.add_argument("--n_epochs", type=int, default=5, help="number of epochs of training")

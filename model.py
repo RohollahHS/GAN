@@ -1,5 +1,4 @@
-import numpy as np
-
+import os
 import torchvision.transforms as transforms
 
 from torchvision import datasets
@@ -25,6 +24,8 @@ def build_model(opt, cuda):
         generator.cuda()
         discriminator.cuda()
         adversarial_loss.cuda()
+
+    os.mkdir('images')
 
     # Configure data loader
     dataloader = torch.utils.data.DataLoader(
