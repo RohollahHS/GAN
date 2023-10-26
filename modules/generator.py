@@ -3,22 +3,20 @@ import torch.nn as nn
 
 
 class Generator(nn.Module):
-    def __init__(self,  img_shape, latent_dim):
+    def __init__(self,  opt):
         super(Generator, self).__init__()
-        self.img_shape = img_shape
-        self.latent_dim = latent_dim
+        image_size = opt.image_size
+        latent_size = opt.latent_size
+        hidden_size = opt.hidden_size
 
         self.model = nn.Sequential(
-                    nn.Linear(latent_dim, 256),
+                    nn.Linear(latent_size, hidden_size),
                     nn.ReLU(),
-                    nn.Linear(256, 512),
+                    nn.Linear(hidden_size, hidden_size),
                     nn.ReLU(),
-                    nn.Linear(512, 1024),
-                    nn.ReLU(),
-                    nn.Linear(1024, np.prod(img_shape)),
+                    nn.Linear(hidden_size, image_size),
                     nn.Tanh())
 
     def forward(self, z):
         img = self.model(z)
-        img = img.view(img.size(0), *self.img_shape)
         return img

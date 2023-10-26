@@ -14,11 +14,9 @@ def build_model(opt):
     # Loss function
     criterion = torch.nn.BCELoss()
 
-    img_shape = (opt.channels, opt.img_size, opt.img_size)
-
     # Initialize generator and discriminator
-    G = Generator(img_shape, opt.latent_dim)
-    D = Discriminator(img_shape)
+    G = Generator(opt)
+    D = Discriminator(opt)
 
     G.to(opt.device)
     D.to(opt.device)
@@ -27,22 +25,24 @@ def build_model(opt):
     if not os.path.exists('images'):
         os.mkdir('images')
 
-    # Configure data loader
-    data_loader = torch.utils.data.DataLoader(
-        datasets.MNIST(
-            "data/mnist",
-            train=True,
-            download=True,
-            transform=transforms.Compose(
-                [transforms.Resize(opt.img_size), transforms.ToTensor(), transforms.Normalize([0.5], [0.5])]
-            ),
-        ),
-        batch_size=opt.batch_size,
-        shuffle=True,
-    )
+    transform = transforms.Compose([
+                    transforms.ToTensor(),
+                    transforms.Normalize(mean=(0.5),
+                                        std=(0.5))])
+
+    # MNIST dataset
+    mnist = datasets.MNIST(root='data/mnist',
+                            train=True,
+                            transform=transform,
+                            download=True)
+
+    # Data loader
+    data_loader = torch.utils.data.DataLoader(dataset=mnist,
+                                            batch_size=opt.batch_size, 
+                                            shuffle=True)
 
     # Optimizers
-    g_optimizer = torch.optim.Adam(G.parameters(), lr=opt.lr, betas=(opt.b1, opt.b2))
-    d_optimizer = torch.optim.Adam(D.parameters(), lr=opt.lr, betas=(opt.b1, opt.b2))
+    g_optimizer = torch.optim.Adam(G.parameters(), lr=opt.lr)
+    d_optimizer = torch.optim.Adam(D.parameters(), lr=opt.lr)
 
     return G, D, g_optimizer, d_optimizer, criterion, data_loader

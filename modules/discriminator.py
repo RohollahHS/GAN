@@ -3,17 +3,18 @@ import torch.nn as nn
 
 
 class Discriminator(nn.Module):
-    def __init__(self, img_shape):
+    def __init__(self, opt):
         super(Discriminator, self).__init__()
 
-        self.img_shape = img_shape
+        self.image_size = opt.image_size
+        hidden_size = self.hidden_size
 
         self.model = nn.Sequential(
-                    nn.Linear(int(np.prod(img_shape)), 512),
+                    nn.Linear(self.image_size, hidden_size),
                     nn.LeakyReLU(0.2),
-                    nn.Linear(512, 256),
+                    nn.Linear(hidden_size, hidden_size),
                     nn.LeakyReLU(0.2),
-                    nn.Linear(256, 1),
+                    nn.Linear(hidden_size, 1),
                     nn.Sigmoid())
 
     def forward(self, img):

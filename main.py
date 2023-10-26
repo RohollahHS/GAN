@@ -21,21 +21,23 @@ def parse_option():
     parser = argparse.ArgumentParser()
     parser.add_argument("--device", type=str, default='cuda' if torch.cuda.is_available() else 'cpu')
     parser.add_argument("--n_epochs", type=int, default=5, help="number of epochs of training")
-    parser.add_argument("--batch_size", type=int, default=16, help="size of the batches")
+    parser.add_argument("--batch_size", type=int, default=32, help="size of the batches")
     parser.add_argument("--lr", type=float, default=0.0002, help="adam: learning rate")
-    parser.add_argument("--b1", type=float, default=0.5, help="adam: decay of first order momentum of gradient")
-    parser.add_argument("--b2", type=float, default=0.999, help="adam: decay of first order momentum of gradient")
     parser.add_argument("--n_cpu", type=int, default=0, help="number of cpu threads to use during batch generation")
-    parser.add_argument("--latent_dim", type=int, default=100, help="dimensionality of the latent space")
-    parser.add_argument("--img_size", type=int, default=28, help="size of each image dimension")
+    parser.add_argument("--latent_size", type=int, default=64, help="dimensionality of the latent space")
+    parser.add_argument("--image_size", type=int, default=784, help="size of each image dimension")
+    parser.add_argument("--hidden_size", type=int, default=256)
     parser.add_argument("--channels", type=int, default=1, help="number of image channels")
-    parser.add_argument("--sample_interval", type=int, default=400, help="interval betwen image samples")
-    parser.add_argument("--output_path", default='output')
+    parser.add_argument("--sample_dir", default='samples')
+    parser.add_argument("--save_dir", default='save')
 
     opt = parser.parse_args()
 
-    if not os.path.exists(opt.output_path):
-        os.mkdir(opt.output_path)
+    if not os.path.exists(opt.sample_dir):
+        os.makedirs(opt.sample_dir)
+
+    if not os.path.exists(opt.save_dir):
+        os.makedirs(opt.save_dir)
 
     print('Args:')
     for k, v in vars(opt).items():
@@ -65,8 +67,8 @@ def train(opt, G, D, g_optimizer, d_optimizer, criterion, data_loader):
     total_step = len(data_loader)
     for epoch in range(num_epochs):
         for i, (images, _) in enumerate(data_loader):
-            images = images.view(batch_size, -1).to(device)
-            images = Variable(images)
+            images = Variable(images.to(device))
+
             # Create the labels which are later used as input for the BCE loss
             real_labels = torch.ones(batch_size, 1).to(device)
             real_labels = Variable(real_labels)
@@ -129,7 +131,7 @@ def train(opt, G, D, g_optimizer, d_optimizer, criterion, data_loader):
                 print('Epoch [{}/{}], Step [{}/{}], d_loss: {:.4f}, g_loss: {:.4f}, D(x): {:.2f}, D(G(z)): {:.2f}' 
                     .format(epoch, num_epochs, i+1, total_step, d_loss.item(), g_loss.item(), 
                             real_score.mean().item(), fake_score.mean().item()))
-        
+            
         # Save real images
         if (epoch+1) == 1:
             images = images.view(images.size(0), 1, 28, 28)
@@ -167,6 +169,9 @@ def train(opt, G, D, g_optimizer, d_optimizer, criterion, data_loader):
             torch.save(G.state_dict(), os.path.join(save_dir, 'G--{}.ckpt'.format(epoch+1)))
             torch.save(D.state_dict(), os.path.join(save_dir, 'D--{}.ckpt'.format(epoch+1)))
 
+    # Save the model checkpoints 
+    torch.save(G.state_dict(), 'G.ckpt')
+    torch.save(D.state_dict(), 'D.ckpt')
 
 if __name__ == '__main__':
     opt = parse_option()
