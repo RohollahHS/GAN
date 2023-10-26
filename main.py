@@ -51,7 +51,7 @@ def train(opt, G, D, g_optimizer, d_optimizer, criterion, data_loader):
     device = opt.device
     batch_size = opt.batch_size
     num_epochs = opt.n_epochs
-    latent_size = opt.latent_dim
+    latent_size = opt.latent_size
     save_dir = opt.output_path
     sample_dir = opt.output_path
 
