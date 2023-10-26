@@ -11,7 +11,7 @@ class Discriminator(nn.Module):
         self.model = nn.Sequential(
                     nn.Linear(int(np.prod(img_shape)), 512),
                     nn.LeakyReLU(0.2),
-                    nn.Linear(256, 256),
+                    nn.Linear(512, 256),
                     nn.LeakyReLU(0.2),
                     nn.Linear(256, 1),
                     nn.Sigmoid())
