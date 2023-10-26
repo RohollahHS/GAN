@@ -10,7 +10,7 @@ from modules.discriminator import Discriminator
 
 
 
-def build_model(opt, cuda):
+def build_model(opt):
     # Loss function
     adversarial_loss = torch.nn.BCELoss()
 
@@ -20,12 +20,12 @@ def build_model(opt, cuda):
     generator = Generator(img_shape, opt.latent_dim)
     discriminator = Discriminator(img_shape)
 
-    if cuda:
-        generator.cuda()
-        discriminator.cuda()
-        adversarial_loss.cuda()
+    generator.to(opt.device)
+    discriminator.to(opt.device)
+    adversarial_loss.to(opt.device)
 
-    os.mkdir('images')
+    if not os.path.exists('images'):
+        os.mkdir('images')
 
     # Configure data loader
     dataloader = torch.utils.data.DataLoader(
