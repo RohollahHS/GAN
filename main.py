@@ -1,11 +1,20 @@
 import argparse
 import numpy as np
 from model import build_model
-
+import matplotlib.pyplot as plt
+import pylab
+import numpy as np
+from torchvision.utils import save_image
+import os
 from torchvision.utils import save_image
 
 from torch.autograd import Variable
 import torch
+
+
+def denorm(x):
+    out = (x + 1) / 2
+    return out.clamp(0, 1)
 
 
 def parse_option():
@@ -21,8 +30,12 @@ def parse_option():
     parser.add_argument("--img_size", type=int, default=28, help="size of each image dimension")
     parser.add_argument("--channels", type=int, default=1, help="number of image channels")
     parser.add_argument("--sample_interval", type=int, default=400, help="interval betwen image samples")
+    parser.add_argument("--output_path", default='output')
 
     opt = parser.parse_args()
+
+    if not os.path.exists(opt.output_path):
+        os.mkdir(opt.output_path)
 
     print('Args:')
     for k, v in vars(opt).items():
@@ -32,9 +45,13 @@ def parse_option():
     return opt
 
 
-def train(opt):
+def train(opt, G, D, g_optimizer, d_optimizer, criterion, data_loader):
     device = opt.device
+    batch_size = opt.batch_size
     num_epochs = opt.n_epochs
+    latent_size = opt.latent_dim
+    save_dir = opt.output_path
+    sample_dir = opt.output_path
 
     d_losses = np.zeros(num_epochs)
     g_losses = np.zeros(num_epochs)
@@ -42,57 +59,64 @@ def train(opt):
     fake_scores = np.zeros(num_epochs)
 
     def reset_grad():
-        optimizer_D.zero_grad()
-        optimizer_G.zero_grad()
+        d_optimizer.zero_grad()
+        g_optimizer.zero_grad()
 
-    total_step = len(dataloader)
+    total_step = len(data_loader)
     for epoch in range(num_epochs):
-        for i, (images, _) in enumerate(dataloader):
+        for i, (images, _) in enumerate(data_loader):
+            images = images.view(batch_size, -1).to(device)
             images = Variable(images)
+            # Create the labels which are later used as input for the BCE loss
+            real_labels = torch.ones(batch_size, 1).to(device)
+            real_labels = Variable(real_labels)
+            fake_labels = torch.zeros(batch_size, 1).to(device)
+            fake_labels = Variable(fake_labels)
 
-            # Adversarial ground truths
-            real_labels = Variable(torch.ones(images.size(0), 1).to(device))
-            fake_labels = Variable(torch.zeros(images.size(0), 1).to(device))
+            # ================================================================== #
+            #                      Train the discriminator                       #
+            # ================================================================== #
 
-            # ---------------------
-            # Train Discriminator on Real Data
-            # ---------------------
-            outputs  = discriminator(images)
-            real_loss = adversarial_loss(outputs, real_labels)
+            # Compute BCE_Loss using real images where BCE_Loss(x, y): - y * log(D(x)) - (1-y) * log(1 - D(x))
+            # Second term of the loss is always zero since real_labels == 1
+            outputs = D(images)
+            d_loss_real = criterion(outputs, real_labels)
             real_score = outputs
-
-            # ---------------------
-            # Train Discriminator on Fake Data
-            # ---------------------
-            z = Variable(torch.randn(images.shape[0], opt.latent_dim).to(device))
-
-            fake_images = generator(z)
-
-            outputs = discriminator(fake_images)
-            fake_loss = adversarial_loss(outputs, fake_labels)
+            
+            # Compute BCELoss using fake images
+            # First term of the loss is always zero since fake_labels == 0
+            z = torch.randn(batch_size, latent_size).to(device)
+            z = Variable(z)
+            fake_images = G(z)
+            outputs = D(fake_images)
+            d_loss_fake = criterion(outputs, fake_labels)
             fake_score = outputs
-
-            d_loss = (real_loss + fake_loss)
-
+            
+            # Backprop and optimize
+            # If D is trained so well, then don't update
+            d_loss = d_loss_real + d_loss_fake
             reset_grad()
             d_loss.backward()
-            optimizer_D.step()
+            d_optimizer.step()
+            # ================================================================== #
+            #                        Train the generator                         #
+            # ================================================================== #
 
-            # -----------------
-            #  Train Generator
-            # -----------------
-            z = Variable(torch.randn(images.shape[0], opt.latent_dim).to(device))
-            fake_images = generator(z)
-            outputs = discriminator(fake_images)
-
-            # Loss measures generator's ability to fool the discriminator
-            g_loss = adversarial_loss(outputs, real_labels)
-
+            # Compute loss with fake images
+            z = torch.randn(batch_size, latent_size).to(device)
+            z = Variable(z)
+            fake_images = G(z)
+            outputs = D(fake_images)
+            
+            # We train G to maximize log(D(G(z)) instead of minimizing log(1-D(G(z)))
+            # For the reason, see the last paragraph of section 3. https://arxiv.org/pdf/1406.2661.pdf
+            g_loss = criterion(outputs, real_labels)
+            
+            # Backprop and optimize
+            # if G is trained so well, then don't update
             reset_grad()
             g_loss.backward()
-            optimizer_G.step()
-
-
+            g_optimizer.step()
             # =================================================================== #
             #                          Update Statistics                          #
             # =================================================================== #
@@ -105,12 +129,48 @@ def train(opt):
                 print('Epoch [{}/{}], Step [{}/{}], d_loss: {:.4f}, g_loss: {:.4f}, D(x): {:.2f}, D(G(z)): {:.2f}' 
                     .format(epoch, num_epochs, i+1, total_step, d_loss.item(), g_loss.item(), 
                             real_score.mean().item(), fake_score.mean().item()))
+        
+        # Save real images
+        if (epoch+1) == 1:
+            images = images.view(images.size(0), 1, 28, 28)
+            save_image(denorm(images.data), os.path.join(sample_dir, 'real_images.png'))
+        
+        # Save sampled images
+        fake_images = fake_images.view(fake_images.size(0), 1, 28, 28)
+        save_image(denorm(fake_images.data), os.path.join(sample_dir, 'fake_images-{}.png'.format(epoch+1)))
+        
+        # Save and plot Statistics
+        np.save(os.path.join(save_dir, 'd_losses.npy'), d_losses)
+        np.save(os.path.join(save_dir, 'g_losses.npy'), g_losses)
+        np.save(os.path.join(save_dir, 'fake_scores.npy'), fake_scores)
+        np.save(os.path.join(save_dir, 'real_scores.npy'), real_scores)
+        
+        plt.figure()
+        pylab.xlim(0, num_epochs + 1)
+        plt.plot(range(1, num_epochs + 1), d_losses, label='d loss')
+        plt.plot(range(1, num_epochs + 1), g_losses, label='g loss')    
+        plt.legend()
+        plt.savefig(os.path.join(save_dir, 'loss.pdf'))
+        plt.close()
 
+        plt.figure()
+        pylab.xlim(0, num_epochs + 1)
+        pylab.ylim(0, 1)
+        plt.plot(range(1, num_epochs + 1), fake_scores, label='fake score')
+        plt.plot(range(1, num_epochs + 1), real_scores, label='real score')    
+        plt.legend()
+        plt.savefig(os.path.join(save_dir, 'accuracy.pdf'))
+        plt.close()
+
+        # Save model at checkpoints
+        if (epoch+1) % 50 == 0:
+            torch.save(G.state_dict(), os.path.join(save_dir, 'G--{}.ckpt'.format(epoch+1)))
+            torch.save(D.state_dict(), os.path.join(save_dir, 'D--{}.ckpt'.format(epoch+1)))
 
 
 if __name__ == '__main__':
     opt = parse_option()
 
-    generator, discriminator, optimizer_G, optimizer_D, adversarial_loss, dataloader = build_model(opt)
+    G, D, g_optimizer, d_optimizer, criterion, data_loader = build_model(opt)
 
-    train(opt)
+    train(opt, G, D, g_optimizer, d_optimizer, criterion, data_loader)

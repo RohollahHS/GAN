@@ -9,13 +9,12 @@ class Discriminator(nn.Module):
         self.img_shape = img_shape
 
         self.model = nn.Sequential(
-            nn.Linear(int(np.prod(img_shape)), 512),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.Linear(512, 256),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.Linear(256, 1),
-            nn.Sigmoid(),
-        )
+                    nn.Linear(int(np.prod(img_shape)), 512),
+                    nn.LeakyReLU(0.2),
+                    nn.Linear(256, 256),
+                    nn.LeakyReLU(0.2),
+                    nn.Linear(256, 1),
+                    nn.Sigmoid())
 
     def forward(self, img):
         img_flat = img.view(img.size(0), -1)

@@ -12,23 +12,23 @@ from modules.discriminator import Discriminator
 
 def build_model(opt):
     # Loss function
-    adversarial_loss = torch.nn.BCELoss()
+    criterion = torch.nn.BCELoss()
 
     img_shape = (opt.channels, opt.img_size, opt.img_size)
 
     # Initialize generator and discriminator
-    generator = Generator(img_shape, opt.latent_dim)
-    discriminator = Discriminator(img_shape)
+    G = Generator(img_shape, opt.latent_dim)
+    D = Discriminator(img_shape)
 
-    generator.to(opt.device)
-    discriminator.to(opt.device)
-    adversarial_loss.to(opt.device)
+    G.to(opt.device)
+    D.to(opt.device)
+    criterion.to(opt.device)
 
     if not os.path.exists('images'):
         os.mkdir('images')
 
     # Configure data loader
-    dataloader = torch.utils.data.DataLoader(
+    data_loader = torch.utils.data.DataLoader(
         datasets.MNIST(
             "data/mnist",
             train=True,
@@ -42,7 +42,7 @@ def build_model(opt):
     )
 
     # Optimizers
-    optimizer_G = torch.optim.Adam(generator.parameters(), lr=opt.lr, betas=(opt.b1, opt.b2))
-    optimizer_D = torch.optim.Adam(discriminator.parameters(), lr=opt.lr, betas=(opt.b1, opt.b2))
+    g_optimizer = torch.optim.Adam(G.parameters(), lr=opt.lr, betas=(opt.b1, opt.b2))
+    d_optimizer = torch.optim.Adam(D.parameters(), lr=opt.lr, betas=(opt.b1, opt.b2))
 
-    return generator, discriminator, optimizer_G, optimizer_D, adversarial_loss, dataloader
+    return G, D, g_optimizer, d_optimizer, criterion, data_loader
