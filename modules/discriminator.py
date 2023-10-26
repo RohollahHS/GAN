@@ -6,11 +6,11 @@ class Discriminator(nn.Module):
     def __init__(self, opt):
         super(Discriminator, self).__init__()
 
-        self.image_size = opt.image_size
-        hidden_size = self.hidden_size
+        image_size = opt.image_size
+        hidden_size = opt.hidden_size
 
         self.model = nn.Sequential(
-                    nn.Linear(self.image_size, hidden_size),
+                    nn.Linear(image_size, hidden_size),
                     nn.LeakyReLU(0.2),
                     nn.Linear(hidden_size, hidden_size),
                     nn.LeakyReLU(0.2),
